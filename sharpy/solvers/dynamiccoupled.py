@@ -86,6 +86,10 @@ class DynamicCoupled(BaseSolver):
         self.res_dqdt = 0.0
         self.res_dqddt = 0.0
 
+        self.abs_res = 0.0
+        self.abs_res_dqdt = 0.0
+        self.abs_res_dqddt = 0.0
+
         self.previous_force = None
 
         self.dt = 0.
@@ -252,18 +256,25 @@ class DynamicCoupled(BaseSolver):
         self.res = (np.linalg.norm(tstep.q-
                                    previous_tstep.q)/
                     np.linalg.norm(previous_tstep.q))
+        self.abs_res = np.linalg.norm(tstep.q - previous_tstep.q)
         self.res_dqdt = (np.linalg.norm(tstep.dqdt-
                                         previous_tstep.dqdt)/
                          np.linalg.norm(previous_tstep.dqdt))
+        self.abs_res_dqdt = np.linalg.norm(tstep.dqddt - previous_tstep.dqddt)
         self.res_dqddt = (np.linalg.norm(tstep.dqddt-
                                          previous_tstep.dqddt)/
                           np.linalg.norm(previous_tstep.dqddt))
+        self.abs_res_dqddt = np.linalg.norm(tstep.dqddt - previous_tstep.dqddt)
 
         # convergence
         if k > self.settings['minimum_steps'].value - 1:
             if self.res < self.settings['fsi_tolerance'].value:
                 if self.res_dqdt < self.settings['fsi_tolerance'].value:
                     if self.res_dqddt < self.settings['fsi_tolerance'].value:
+                        return True
+            if self.abs_res < self.settings['fsi_tolerance'].value:
+                if self.abs_res_dqdt < self.settings['fsi_tolerance'].value:
+                    if self.abs_res_dqddt < self.settings['fsi_tolerance'].value:
                         return True
 
         return False
