@@ -13,6 +13,64 @@ import sharpy.structure.utils.xbeamlib as xbeamlib
 
 @solver
 class WriteVariablesTime(BaseSolver):
+    """
+    Real time online export to ``.dat`` file of selected user variables
+
+    The post processor exports the selected variables which can be Frames of Reference (FoRs), structural variables at
+    nodes and aerodynamic variables at nodes and surfaces.
+
+    The following variables are currently supported:
+    ==========  ========================  ===================================================================================
+    Type        Variable                  Description
+    ==========  ========================  ===================================================================================
+    FoR         ``GFoR_pos``
+    FoR         ``GFoR_vel``
+    FoR         ``GFoR_acc``
+    FoR         ``GFoR_quat``
+    FoR         ``GFoR_pos``
+    FoR         ``GFoR_vel``
+    FoR         ``GFoR_acc``
+    FoR         ``GFoR_quat``
+    Structure   ``AFoR_steady_forces``
+    Structure   ``AFoR_unsteady_forces``
+    Structure   ``AFoR_position``
+    Structure   ``AFoR_velocity``
+    Aero Panel  ``gamma``                 Aerodynamic circulation at the panel
+    Aero Panel  ``gamma_dot``             Time derivative of the circulation calculated using second order finite differences
+    Aero Panel  ``norm_gamma_star``
+    Aero Panel  ``norm_gamma``
+    Aero Node   ``GFoR_steady_force``
+    Aero Node   ``GFoR_unsteady_force``
+    ==========  ========================  =====================================================================================
+
+    Args:
+        data (ProblemData)
+        custom_setting (dict): Custom settings not parsed in the general ``settings`` dictionary. ``None`` by default
+
+    Attributes:
+        settings (dict): Key-value pair for the acceptable settings. See acceptable entries below:
+
+            =========================  =============  ============================================================  ========
+            Name                       Type           Description                                                   Default
+            =========================  =============  ============================================================  ========
+            ``delimeter``              ``str``        Delimeter between entries in ``.dat`` file                    ``None``
+            ``structure_variables``    ``list(str)``  User selected structural output variables                     ``None``
+            ``structure_nodes``        ``np.array``   Array containing structural nodes from which to extract info  ``[-1]``
+            ``aero_panels_variables``  ``list(str)``  User selected aero panels output variables                    ``None``
+            ``aero_panels_isurf``      ``list(int)``  Surface index of the aero panels of interest                  ``[0]``
+            ``aero_panels_im``         ``list(int)``  ``m`` index of the panel of interest                          ``[0]``
+            ``aero_panels_in``         ``list(int)``  ``n`` index of the panel of interest                          ``[0]``
+            ``aero_nodes_variables``   ``list(str)``  User selected aero nodes from which to extract variables      ``None``
+            ``aero_nodes_isurf``       ``list(int)``  Surface index of the aero node of interest                    ``[0]``
+            ``aero_nodes_im``          ``list(int)``  ``m`` index of the node of interest                           ``[0]``
+            ``aero_nodes_in``          ``list(int)``  ``n`` index of the node of interest                           ``[0]``
+            =========================  =============  ============================================================  ========
+
+        settings_types (dict): data types of the relevant settings
+        settings_default (dict): default value for the settings
+        dir (str): output directory
+
+    """
     solver_id = 'WriteVariablesTime'
 
     def __init__(self):
@@ -150,10 +208,17 @@ class WriteVariablesTime(BaseSolver):
 
                 if (self.settings['aero_panels_variables'][ivariable] == 'gamma'):
                     self.write_value_to_file(fid, self.data.ts, self.data.aero.timestep_info[-1].gamma[i_surf][i_m,i_n], self.settings['delimiter'])
+
                 elif (self.settings['aero_panels_variables'][ivariable] == 'norm_gamma'):
                     self.write_value_to_file(fid, self.data.ts, np.linalg.norm(self.data.aero.timestep_info[-1].gamma[i_surf]), self.settings['delimiter'])
+
                 elif (self.settings['aero_panels_variables'][ivariable] == 'norm_gamma_star'):
                     self.write_value_to_file(fid, self.data.ts, np.linalg.norm(self.data.aero.timestep_info[-1].gamma_star[i_surf]), self.settings['delimiter'])
+
+                elif self.settings['aero_panels_variables'][ivariable] == 'gamma_dot':
+                    self.write_value_to_file(fid, self.data.ts,
+                                             self.data.aero.timestep_info[-1].gamma_dot[i_surf][i_m,i_n], self.settings['delimiter'])
+
                 else:
                     print("Unrecognized " + self.settings['aero_panels_variables'][ivariable] + " variable")
 
