@@ -15,9 +15,9 @@ rho = 1.225
 q_inf = 0.5*rho*u_inf**2
 wing_orientation = algebra.euler2quat(np.array([0, alpha*np.pi/180, 0]))
 
-
-# AR_range = np.arange(10,100,10)
-AR_range = [10,20]
+m = 6
+AR_range = np.arange(7,9,2)
+# AR_range = [10,20]
 
 CL = np.zeros(len(AR_range))
 CL_alpha = np.zeros(len(AR_range))
@@ -34,17 +34,16 @@ for AR in AR_range:
 
 
     # Number of bound panels
-    m = 10
     ar_panel = 1
 
     ar_ratio = AR // ar_panel
 
-    M, N, Mstarfact = m, ar_ratio*m, 15
+    M, N, Mstarfact = m, ar_ratio*m+2, 15
     K[iter] = M*N
     Nsurfaces = 2
 
     # Case name
-    case_name = "flat_plate_K%.4d_a%.4d_uinf%.4d_AR%.2d" %(K[iter], alpha*100, u_inf, AR)
+    case_name = "flat_plate_M%.4d_a%.4d_uinf%.4d_AR%.2d" %(M, alpha*100, u_inf, AR)
     route = os.path.abspath('.') + '/cases/'
     dir_name = route+case_name+'/'
     os.system('rm -rf dir_name')
@@ -62,7 +61,7 @@ for AR in AR_range:
                                   rho=rho,
                                   n_surfaces=Nsurfaces,
                                   route = dir_name,
-                                  case_name='flat_plate')
+                                  case_name=case_name)
     # wing.root_airfoil_P = 0
     # wing.root_airfoil_M = 0
     # wing.tip_airfoil_P = 0
@@ -92,7 +91,7 @@ for AR in AR_range:
 
     ### solve
     data = sharpy.sharpy_main.main(['path_to_solver_useless',
-                                    dir_name + 'flat_plate' + '.solver.txt'])
+                                    dir_name + case_name + '.solver.txt'])
     fz_aero = 0
     fx_aero = 0
 

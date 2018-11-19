@@ -3,7 +3,10 @@ Read Lift Curve Test Data
 """
 
 import numpy as np
+import os
 import sharpy.utils.h5utils as h5
+import sharpy.utils.algebra as algebra
+import matplotlib.pyplot as plt
 
 
 def comp_total_forces(data, moment_reference, AR):
@@ -16,7 +19,7 @@ def comp_total_forces(data, moment_reference, AR):
 
     rho = data.settings['StaticUvlm']['rho']
     u_inf = data.settings['StaticUvlm']['velocity_field_input']['u_inf']
-    span = data.structure.timestep_info[0].pos[-1,1]*2
+    span = np.max(data.structure.timestep_info[0].pos[:, 1])*2
     chord = span/AR
 
     aeroforces = data.aero.timestep_info[0].forces
@@ -46,11 +49,15 @@ def comp_total_forces(data, moment_reference, AR):
 M = 10
 alpha = 4
 u_inf = 50
-AR_range = np.arange(10,100,10)
+AR_range = np.arange(10, 100, 10)
 
 iter = 0
 
-for AR in range(AR_range):
+cftot = np.zeros((len(AR_range), 3))
+cmtot = np.zeros((len(AR_range), 3))
+CL_alpha = np.zeros(len(AR_range))
+
+for AR in AR_range:
 
     # Case Name
     case_name = "flat_plate_K%.4d_a%.4d_uinf%.4d_AR%.2d" %(M*AR*10, alpha*100, u_inf, AR)
@@ -61,4 +68,25 @@ for AR in range(AR_range):
 
     cftot[iter,:], cmtot[iter, :] = comp_total_forces(data, [0,0,0], AR)
 
+    CL_alpha[iter] = cftot[iter,2]/alpha/np.pi*180
+
     iter += 1
+
+fig = plt.figure(figsize=(12,10))
+
+plt.plot(AR_range, CL_alpha,
+         lw=2,
+         color='k')
+
+AR_range_fine = np.linspace(np.min(AR_range), np.max(AR_range), 50)
+AR_theory = np.pi*2*AR_range_fine/(AR_range_fine+2)
+
+plt.plot(AR_range_fine, AR_theory,
+         lw=2,
+         ls='--')
+
+plt.xlabel('Aspect Ratio, AR')
+plt.ylabel('Lift Curve Slope, $C_{L_alpha}')
+plt.grid()
+
+plt.show()
