@@ -63,11 +63,17 @@ class TestFixNodeVelocitywrtA(unittest.TestCase):
         SimInfo.solvers['SHARPy']['flow'] = ['BeamLoader',
                                 'AerogridLoader',
                                 'StaticCoupled',
+<<<<<<< Updated upstream
                                 'DynamicCoupled']
         global name
         name = 'fix_node_velocity_wrtA'
         SimInfo.solvers['SHARPy']['case'] = name
         SimInfo.solvers['SHARPy']['write_screen'] = 'off'
+=======
+                                'DynamicCoupled',
+                                'BeamPlot']
+        SimInfo.solvers['SHARPy']['case'] = 'fix_node_velocity_wrtA'
+>>>>>>> Stashed changes
         SimInfo.solvers['SHARPy']['route'] = os.path.dirname(os.path.realpath(__file__)) + '/'
         SimInfo.set_variable_all_dicts('dt', 0.1)
         SimInfo.set_variable_all_dicts('rho', 0.0)
@@ -90,12 +96,17 @@ class TestFixNodeVelocitywrtA(unittest.TestCase):
         SimInfo.solvers['WriteVariablesTime']['structure_nodes'] = np.array([0,  int((nnodes1-1)/2), -1], dtype = int)
         SimInfo.solvers['WriteVariablesTime']['structure_variables'] = ['pos']
 
+<<<<<<< Updated upstream
         SimInfo.solvers['BeamPlot']['include_FoR'] = True
+=======
+        SimInfo.solvers['BeamPlot']['include_FoR']: 'on'
+>>>>>>> Stashed changes
 
         SimInfo.solvers['DynamicCoupled']['structural_solver'] = 'NonLinearDynamicMultibody'
         SimInfo.solvers['DynamicCoupled']['structural_solver_settings'] = SimInfo.solvers['NonLinearDynamicMultibody']
         SimInfo.solvers['DynamicCoupled']['aero_solver'] = 'StepUvlm'
         SimInfo.solvers['DynamicCoupled']['aero_solver_settings'] = SimInfo.solvers['StepUvlm']
+        SimInfo.solvers['DynamicCoupled']['structural_substeps'] = 10
         SimInfo.solvers['DynamicCoupled']['postprocessors'] = ['WriteVariablesTime', 'BeamPlot', 'AerogridPlot']
         SimInfo.solvers['DynamicCoupled']['postprocessors_settings'] = {'WriteVariablesTime': SimInfo.solvers['WriteVariablesTime'],
                                                                         'BeamPlot': SimInfo.solvers['BeamPlot'],

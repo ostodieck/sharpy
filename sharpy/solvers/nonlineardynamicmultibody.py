@@ -294,6 +294,7 @@ class NonLinearDynamicMultibody(BaseSolver):
         # TODO: code
         pass
 
+<<<<<<< Updated upstream
     def compute_forces_constraints(self, MB_beam, MB_tstep, ts, dt, Lambda, Lambda_dot):
 
         LM_C, LM_K, LM_Q = lagrangeconstraints.generate_lagrange_matrix(self.lc_list, MB_beam, MB_tstep, ts, self.num_LM_eq, self.sys_size, dt, Lambda, Lambda_dot, "dynamic")
@@ -318,13 +319,13 @@ class NonLinearDynamicMultibody(BaseSolver):
         # TODO: right now, these forces are only used as an output, they are not read when the multibody is splitted
 
 
-    def run(self, structural_step=None):
-
+    def run(self, structural_step=None, dt=None):
         if structural_step is None:
             structural_step = self.data.structure.timestep_info[-1]
         # Initialize variables
         MBdict = self.data.structure.mb_dict
-        dt = self.settings['dt'].value
+        if dt is None:
+            dt = self.settings['dt'].value
 
         # print("beg quat: ", structural_step.quat)
         # TODO: only working for constant forces
