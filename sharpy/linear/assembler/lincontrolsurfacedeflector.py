@@ -94,6 +94,7 @@ class LinControlSurfaceDeflector(object):
         if self.under_development:
             import matplotlib.pyplot as plt  # Part of the testing process
         Kdisp = np.zeros((3 * linuvlm.Kzeta, n_control_surfaces))
+        Kvel = np.zeros((3 * linuvlm.Kzeta, n_control_surfaces))
         Kmom = np.zeros((3 * linuvlm.Kzeta, n_control_surfaces))
         zeta0 = np.concatenate([tsaero0.zeta[i_surf].reshape(-1, order='C') for i_surf in range(n_surf)])
 
@@ -169,7 +170,7 @@ class LinControlSurfaceDeflector(object):
                                     zeta_hingeA = Cag.dot(zeta_hinge)
                                     zeta_hingeB = Cbg.dot(zeta_hinge)
                                     zeta_nodeB = Cbg.dot(zeta_node)
-                                    chord_vec = (zeta_node - zeta_hinge)
+                                    chord_vec = (zeta_node - zeta_hinge)  # G frame
                                     if self.under_development:
                                         print('G Frame')
                                         print('Hinge axis = ' + str(hinge_axis))
@@ -191,6 +192,9 @@ class LinControlSurfaceDeflector(object):
                                         Cgb.dot(der_R_arbitrary_axis_times_v(Cbg.dot(hinge_axis),
                                                                              0,
                                                                              -for_delta * Cbg.dot(chord_vec)))
+                                    Kvel[i_vertex, i_control_surface] = \
+                                        Cgb.dot(-algebra.skew(-for_delta * Cbg.dot(chord_vec)))
+
                                     # Flap hinge moment
                                     # Kmom[i_vertex, i_control_surface] += algebra.skew(chord_vec)
 
