@@ -1,19 +1,12 @@
 import ctypes as ct
 import numpy as np
 
-from sharpy.utils.settings import str2bool
-import sharpy.utils.solver_interface as solver_interface
 from sharpy.utils.solver_interface import solver, BaseSolver, solver_from_string
 import sharpy.utils.settings as settings
-import sharpy.utils.cout_utils as cout
 
 import sharpy.structure.utils.xbeamlib as xbeamlib
-import sharpy.utils.algebra as algebra
-import sharpy.utils.h5utils as h5utils
 import sharpy.utils.multibody as mb
-import sharpy.utils.utils_ams as uams
 import sharpy.structure.utils.lagrangeconstraints as lagrangeconstraints
-import matplotlib.pyplot as plt
 import sharpy.utils.exceptions as exc
 
 
@@ -262,9 +255,8 @@ class NonLinearDynamicMultibody(_BaseStructural):
         for iteration in range(self.settings['max_iterations'].value):
             # Check if the maximum of iterations has been reached
             if iteration == self.settings['max_iterations'].value - 1:
-                error = ('Solver did not converge in ', iteration, ' iterations.\n' +
-                         'res = ', res  + '\n'+
-                         'LM_res = ', LM_res)
+                error = ('Solver did not converge in %d iterations.\n res = %e \n LM_res = %e' % 
+                        (iteration, res, LM_res))
                 raise exc.NotConvergedSolver(error)
 
             # Update positions and velocities

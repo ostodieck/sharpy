@@ -21,6 +21,7 @@ class LinControlSurfaceDeflector(object):
         # As of now, it simply maps a deflection onto the aerodynamic grid by means of Kzeta_delta
         self.n_control_surfaces = 0
         self.Kzeta_delta = None
+        self.Kdzeta_ddelta = None
         self.Kmom = None
 
         self.linuvlm = None
@@ -92,8 +93,15 @@ class LinControlSurfaceDeflector(object):
         n_control_surfaces = self.n_control_surfaces
 
         if self.under_development:
-            import matplotlib.pyplot as plt  # Part of the testing process
+            try:
+                import matplotlib.pyplot as plt  # Part of the testing process
+            except ModuleNotFoundError:
+                import warnings
+                warnings.warn('Unable to import matplotlib, skipping plots')
+                self.under_development = False
+
         Kdisp = np.zeros((3 * linuvlm.Kzeta, n_control_surfaces))
+        Kvel = np.zeros((3 * linuvlm.Kzeta, n_control_surfaces))
         Kmom = np.zeros((3 * linuvlm.Kzeta, n_control_surfaces))
         zeta0 = np.concatenate([tsaero0.zeta[i_surf].reshape(-1, order='C') for i_surf in range(n_surf)])
 
@@ -191,7 +199,14 @@ class LinControlSurfaceDeflector(object):
                                         Cgb.dot(der_R_arbitrary_axis_times_v(Cbg.dot(hinge_axis),
                                                                              0,
                                                                              -for_delta * Cbg.dot(chord_vec)))
-                                    # Flap hinge moment
+                                    # Kdisp[i_vertex, i_control_surface] = \
+                                    #     der_R_arbitrary_axis_times_v(hinge_axis, 0, chord_vec)
+
+                                    # Flap velocity
+                                    Kvel[i_vertex, i_control_surface] = -algebra.skew(chord_vec).dot(
+                                        hinge_axis)
+
+                                    # Flap hinge moment - future work
                                     # Kmom[i_vertex, i_control_surface] += algebra.skew(chord_vec)
 
                                     # Testing progress
@@ -203,7 +218,8 @@ class LinControlSurfaceDeflector(object):
 
                                         # Testing out
                                         delta = 5*np.pi/180
-                                        zeta_newB = Cbg.dot(Kdisp[i_vertex, 1].dot(delta)) + zeta_nodeB
+                                        # zeta_newB = Cbg.dot(Kdisp[i_vertex, 1].dot(delta)) + zeta_nodeB
+                                        zeta_newB = Cbg.dot(Kdisp[i_vertex, -1].dot(delta)) + zeta_nodeB
                                         plt.scatter(zeta_newB[1], zeta_newB[2], color='r')
 
                                         old_vector = zeta_nodeB - zeta_hingeB
@@ -221,8 +237,9 @@ class LinControlSurfaceDeflector(object):
                             hinge_axis = None  # Reset for next control surface
 
         self.Kzeta_delta = Kdisp
+        self.Kdzeta_ddelta = Kvel
         # self.Kmom = Kmom
-        return Kdisp
+        return Kdisp, Kvel
 
 
 def der_Cx_by_v(delta, v):

@@ -73,11 +73,11 @@ class TestGammaDot(unittest.TestCase):
                                                                                             'u_inf_direction': [1., 0.,
                                                                                                                 0.],
                                                                                             'gust_shape': 'continuous_sin',
-                                                                                            'gust_length': 2.,
-                                                                                            'gust_intensity': ws.gust_intensity
-                                                                                                              * ws.u_inf,
                                                                                             'offset': 2.,
-                                                                                            'span': ws.main_chord * ws.aspect_ratio}}
+                                                                                            'gust_parameters': {'gust_length': 2.,
+                                                                                                                'gust_intensity': ws.gust_intensity
+                                                                                                                                  * ws.u_inf,
+                                                                                                                'span': ws.main_chord * ws.aspect_ratio}}}
         else:
             ws.config['DynamicCoupled']['aero_solver'] = 'StepUvlm'
             ws.config['DynamicCoupled']['aero_solver_settings'] = {
@@ -100,7 +100,7 @@ class TestGammaDot(unittest.TestCase):
                 'rho': ws.rho,
                 'n_time_steps': ws.n_tstep,
                 'dt': ws.dt,
-                'gamma_dot_filtering': 0, 
+                'gamma_dot_filtering': 0,
                 'track_body': True,
                 'track_body_number': -1}
             ws.config['DynamicCoupled']['include_unsteady_force_contribution'] = 'on'
@@ -116,7 +116,7 @@ class TestGammaDot(unittest.TestCase):
 
         self.set_up_test_case(aero_type, predictor, sparse, integration_order)
         ws = self.ws
-        data = sharpy.sharpy_main.main(['', self.case_route + self.case_name + '.solver.txt'])
+        data = sharpy.sharpy_main.main(['', self.case_route + self.case_name + '.sharpy'])
 
         # Obtain gamma
         gamma = np.zeros((ws.n_tstep,))
@@ -138,13 +138,17 @@ class TestGammaDot(unittest.TestCase):
             passed_test = error_derivative < 1e-2 * np.abs(gamma_dot_at_max)
 
         if not passed_test:
-            import matplotlib.pyplot as plt
-            plt.plot(gamma_dot)
-            plt.plot(gamma_dot_fd, color='k')
-            plt.show()
+            try:
+                import matplotlib.pyplot as plt
+                plt.plot(gamma_dot)
+                plt.plot(gamma_dot_fd, color='k')
+                plt.show()
 
-            plt.plot(gamma_dot - gamma_dot_fd)
-            plt.show()
+                plt.plot(gamma_dot - gamma_dot_fd)
+                plt.show()
+            except ModuleNotFoundError:
+                import warnings
+                warnings.warn('Unable to import matplotlib, skipping plot')
 
         assert passed_test == True, \
             'Discrepancy between gamma_dot and that calculated using FD, relative difference is %.2f' % (
@@ -175,14 +179,14 @@ class TestGammaDot(unittest.TestCase):
 
                     self.run_test(aero_type, predictor, sparse, integration_order)
 
-    def tearDowns(self):
+    def tearDown(self):
 
         solver_path = os.path.dirname(os.path.realpath(__file__))
         # solver_path += '/'
         # files_to_delete = [case + '.aero.h5',
         #                    case + '.dyn.h5',
         #                    case + '.fem.h5',
-        #                    case + '.solver.txt']
+        #                    case + '.sharpy']
         # for f in files_to_delete:
         #     os.remove(solver_path + f)
 

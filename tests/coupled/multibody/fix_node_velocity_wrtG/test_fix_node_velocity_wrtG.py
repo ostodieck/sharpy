@@ -15,7 +15,6 @@ class TestFixNodeVelocitywrtG(unittest.TestCase):
     """
     def setUp(self):
 
-        deg2rad = np.pi/180.
         nodes_per_elem = 3
 
         # beam1: uniform and symmetric with aerodynamic properties equal to zero
@@ -161,7 +160,7 @@ class TestFixNodeVelocitywrtG(unittest.TestCase):
         """
 
         """
-        solver_path = folder + '/fix_node_velocity_wrtG.solver.txt'
+        solver_path = folder + '/fix_node_velocity_wrtG.sharpy'
         sharpy.sharpy_main.main(['', solver_path])
 
         # read output and compare
@@ -176,7 +175,7 @@ class TestFixNodeVelocitywrtG(unittest.TestCase):
                            self.name + '.dyn.h5',
                            self.name + '.fem.h5',
                            self.name + '.mb.h5',
-                           self.name + '.solver.txt']
+                           self.name + '.sharpy']
         for f in files_to_delete:
             os.remove(folder + '/' + f)
 

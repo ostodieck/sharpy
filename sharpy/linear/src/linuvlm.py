@@ -21,29 +21,6 @@ import sharpy.utils.settings as settings
 import sharpy.utils.cout_utils as cout
 
 
-"""
- Dictionary for default settings.
-============================  =========  ===============================================    ==========
-Name                          Type       Description                                        Default
-============================  =========  ===============================================    ==========
-``dt``                        ``float``  Time increment                                     ``0.1``
-``integr_order``              ``int``    Finite difference order for bound circulation      ``2``
-``density``                   ``float``  Air density                                        ``1.225``
-``ScalingDict``               ``dict``   Dictionary with scaling gains. See Notes.
-``remove_predictor``          ``bool``   Remove predictor term from UVLM system assembly    ``True``
-``use_sparse``                ``bool``   Use sparse form of A and B state space matrices    ``True``
-``velocity_field_generator``  ``str``    Selected velocity generator                        ``None``
-``velocity_filed_input``      ``dict``   Settings for the velocity generator                ``None``
-``track_body``                ``bool``   If True, the linearised grid will follow the       ``False``
-                                         A frame or a body (for multi-body solution)
-``track_body_number``         ``int``    If -1, the linearised grid will follow the         ``-1``
-                                         A frame. Otherwise, this is the number of the
-                                         body to track in a multi-body solution. This
-                                         option also specifies where to read the
-                                         rotational speed at linearisation point
-============================  =========  ===============================================    ==========
-"""
-
 settings_types_dynamic = dict()
 settings_default_dynamic = dict()
 
@@ -89,7 +66,7 @@ settings_default_dynamic['track_body_number'] = -1
 class Static():
     """	Static linear solver """
 
-    def __init__(self, tsdata, for_vel=np.zeros((6),)):
+    def __init__(self, tsdata, for_vel=np.zeros((6,))):
 
         print('Initialising Static linear UVLM solver class...')
         t0 = time.time()
@@ -428,11 +405,11 @@ class Static():
 # # utilities for Dynamic.balfreq method
 
 # def get_trapz_weights(k0,kend,Nk,knyq=False):
-#     '''
+#     """
 #     Returns uniform frequency grid (kv of length Nk) and weights (wv) for
 #     Gramians integration using trapezoidal rule. If knyq is True, it is assumed
 #     that kend is also the Nyquist frequency.
-#     '''
+#     """
 
 #     assert k0>=0. and kend>=0., 'Frequencies must be positive!'
 
@@ -454,7 +431,7 @@ class Static():
 
 
 # def get_gauss_weights(k0,kend,Npart,order):
-#     '''
+#     """
 #     Returns gauss-legendre frequency grid (kv of length Npart*order) and
 #     weights (wv) for Gramians integration.
 
@@ -465,7 +442,7 @@ class Static():
 #     Note: integration points are never located at k0 or kend, hence there
 #     is no need for special treatment as in (for e.g.) a uniform grid case
 #     (see get_unif_weights)
-#     '''
+#     """
 
 #     if Npart==1:
 #         # get gauss normalised coords and weights
@@ -494,7 +471,7 @@ class Static():
 
 
 class Dynamic(Static):
-    """
+    r"""
     Class for dynamic linearised UVLM solution. Linearisation around steady-state
     are only supported. The class is built upon Static, and inherits all the
     methods contained there.
@@ -555,7 +532,7 @@ class Dynamic(Static):
     """
 
     def __init__(self, tsdata, dt=None, dynamic_settings=None, integr_order=2,
-                       RemovePredictor=True, ScalingDict=None, UseSparse=True, for_vel=np.zeros((6),)):
+                       RemovePredictor=True, ScalingDict=None, UseSparse=True, for_vel=np.zeros((6,))):
 
         super().__init__(tsdata, for_vel=for_vel)
 
@@ -563,31 +540,25 @@ class Dynamic(Static):
         self.settings = dict()
         if dynamic_settings:
             self.settings = dynamic_settings
+        else:
+            warnings.warn('No settings dictionary found. Using default. Individual parsing of settings is deprecated',
+                          DeprecationWarning)
+            # Future: remove deprecation warning and make settings the only argument
             settings.to_custom_types(self.settings, settings_types_dynamic, settings_default_dynamic)
+            self.settings['dt'] = dt
+            self.settings['integr_order'] = integr_order
+            self.settings['remove_predictor'] = RemovePredictor
+            self.settings['use_sparse'] = UseSparse
+            self.settings['ScalingDict'] = ScalingDict
 
-
-            if type(self.settings['integr_order']) == int:
-                dt = self.settings['dt'].value
-                rho = self.settings['rho'].value
-                integr_order = self.settings['integr_order']
-                RemovePredictor = self.settings['remove_predictor'].value
-                UseSparse = self.settings['use_sparse'].value
-                ScalingDict = self.settings['ScalingDict'].value
-            else:
-                dt = self.settings['dt'].value
-                integr_order = self.settings['integr_order'].value
-                RemovePredictor = self.settings['remove_predictor']
-                UseSparse = self.settings['use_sparse']
-                ScalingDict = self.settings['ScalingDict']
-
-        self.dt = float(dt)
-        self.integr_order = integr_order
+        self.dt = self.settings['dt']
+        self.integr_order = self.settings['integr_order']
 
         if self.integr_order == 1:
             Nx = 2 * self.K + self.K_star
         elif self.integr_order == 2:
             Nx = 3 * self.K + self.K_star
-            b0, bm1, bp1 = -2., 0.5, 1.5
+            # b0, bm1, bp1 = -2., 0.5, 1.5
         else:
             raise NameError('Only integration orders 1 and 2 are supported')
         Ny = 3 * self.Kzeta
@@ -596,25 +567,15 @@ class Dynamic(Static):
         self.Nu = Nu
         self.Ny = Ny
 
-        self.remove_predictor = RemovePredictor
+        self.remove_predictor = self.settings['remove_predictor']
         # Stores original B matrix for state recovery later
         self.B_predictor = None
         self.D_predictor = None
 
         self.include_added_mass = True
-        self.use_sparse = UseSparse
+        self.use_sparse = self.settings['use_sparse']
 
-        # create scaling quantities
-        if ScalingDict is None:
-            ScalingFacts = {'length': 1.,
-                            'speed': 1.,
-                            'density': 1.}
-        else:
-            ScalingFacts = ScalingDict
-
-        for key in ScalingFacts:
-            ScalingFacts[key] = np.float(ScalingFacts[key])
-
+        ScalingFacts = self.settings['ScalingDict']
         ScalingFacts['time'] = ScalingFacts['length'] / ScalingFacts['speed']
         ScalingFacts['circulation'] = ScalingFacts['speed'] * ScalingFacts['length']
         ScalingFacts['dyn_pressure'] = 0.5 * ScalingFacts['density'] * ScalingFacts['speed'] ** 2
@@ -725,7 +686,6 @@ class Dynamic(Static):
 
                 \mathbf{x}_{n+1} &= \mathbf{A}\,\mathbf{x}_n + \mathbf{B} \mathbf{u}_{n+1} \\
                 \mathbf{y}_n &= \mathbf{C}\,\mathbf{x}_n + \mathbf{D} \mathbf{u}_n
-
 
         where the state, inputs and outputs are:
 
@@ -884,7 +844,6 @@ class Dynamic(Static):
         if self.use_sparse:
             Bss = libsp.csc_matrix(Bss)
         LU, P = None, None
-
         # ---------------------------------------------------------- output eq.
 
         ### state terms (C matrix)
@@ -1692,7 +1651,7 @@ class Dynamic(Static):
 ################################################################################
 
 class DynamicBlock(Dynamic):
-    '''
+    """
     Class for dynamic linearised UVLM solution. Linearisation around steady-state
     are only supported.
 
@@ -1703,47 +1662,57 @@ class DynamicBlock(Dynamic):
     limited balancing.
 
     Input:
+
         - tsdata: aero timestep data from SHARPy solution
         - dt: time-step
         - integr_order=2: integration order for UVLM unsteady aerodynamic force
         - RemovePredictor=True: if true, the state-space model is modified so as
-        to accept in input perturbations, u, evaluated at time-step n rather than
-        n+1.
+          to accept in input perturbations, u, evaluated at time-step n rather than
+          n+1.
         - ScalingDict=None: disctionary containing fundamental reference units
-            {'length':  reference_length,
-             'speed':   reference_speed,
-             'density': reference density}
-        used to derive scaling quantities for the state-space model variables.
-        The scaling factors are stores in
-            self.ScalingFact.
-        Note that while time, circulation, angular speeds) are scaled
-        accordingly, FORCES ARE NOT. These scale by qinf*b**2, where b is the
-        reference length and qinf is the dinamic pressure.
+
+            >>> {'length':  reference_length,
+                 'speed':   reference_speed,
+                 'density': reference density}
+
+
+          used to derive scaling quantities for the state-space model variables.
+          The scaling factors are stores in ``self.ScalingFact``.
+
+          Note that while time, circulation, angular speeds) are scaled
+          accordingly, FORCES ARE NOT. These scale by qinf*b**2, where b is the
+          reference length and qinf is the dinamic pressure.
         - UseSparse=False: builds the A and B matrices in sparse form. C and D
-        are dense, hence the sparce format is not used.
+          are dense, hence the sparce format is not used.
+
 
     Methods:
         - nondimss: normalises a dimensional state-space model based on the
-        scaling factors in self.ScalingFact.
+          scaling factors in self.ScalingFact.
         - dimss: inverse of nondimss.
         - assemble_ss: builds state-space model. See function for more details.
         - assemble_ss_profiling: generate profiling report of the assembly and
-        saves it into self.prof_out. To read the report:
-            import pstats
-            p=pstats.Stats(self.prof_out)
+          saves it into self.prof_out. To read the report:
+
+            >>> import pstats
+                p=pstats.Stats(self.prof_out)
+
+
         - freqresp: ad-hoc method for fast frequency response (only implemented)
-        for remove_predictor=False
-
-    To do:
-
-    - upgrade to linearise around unsteady snapshot (adjoint)
-    '''
+          for remove_predictor=False
 
 
-    def __init__(self, tsdata, dt,
+    To do: upgrade to linearise around unsteady snapshot (adjoint)
+    """
+
+    def __init__(self, tsdata, dt=None,
                  dynamic_settings=None,
                  integr_order=2,
                        RemovePredictor=True, ScalingDict=None, UseSparse=True, for_vel=np.zeros((6),)):
+
+        if dynamic_settings is None:
+            warnings.warn('Individual parsing of settings is deprecated. Please use the settings dictionary',
+                          DeprecationWarning)
 
         super().__init__(tsdata, dt,
                          dynamic_settings=dynamic_settings,
@@ -2064,7 +2033,7 @@ class DynamicBlock(Dynamic):
         print('\t\t\t...done in %.2f sec' % self.cpu_summary['assemble'])
 
     def freqresp(self, kv):
-        '''
+        """
         Ad-hoc method for fast UVLM frequency response over the frequencies
         kv. The method, only requires inversion of a K x K matrix at each
         frequency as the equation for propagation of wake circulation are solved
@@ -2075,7 +2044,7 @@ class DynamicBlock(Dynamic):
         Note:
         This method is very similar to the "minsize" solution option is the
         steady_solve.
-        '''
+        """
 
         MS = self.MS
         K = self.K
@@ -2120,7 +2089,7 @@ class DynamicBlock(Dynamic):
         return Yfreq
 
     def balfreq(self, DictBalFreq):
-        '''
+        """
         Low-rank method for frequency limited balancing.
         The Observability ad controllability Gramians over the frequencies kv
         are solved in factorised form. Balancd modes are then obtained with a
@@ -2214,7 +2183,7 @@ class DynamicBlock(Dynamic):
             min{ 2*28* number_inputs, 2*28* number_outputs }
         The model is finally truncated so as to retain only the first Ns stable
         modes.
-        '''
+        """
 
         ### check input dictionary
         if 'frequency' not in DictBalFreq:
@@ -2434,8 +2403,6 @@ class DynamicBlock(Dynamic):
             self.Zo=Zo
             self.svd_res={ 'U': U, 'hsv': hsv, 'Vh': Vh }
 
-
-
     def solve_step(self, x_n, u_n, u_n1=None, transform_state=False):
         r"""
         Solve step.
@@ -2484,9 +2451,6 @@ class DynamicBlock(Dynamic):
             'self.SS', the implementation change with respect to Dynamic. However,
             formulas are consistent.
         """
-
-        # from IPython import embed
-        # embed()
 
         if u_n1 is None:
             u_n1 = u_n.copy()

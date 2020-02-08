@@ -23,7 +23,19 @@ j = 1.0j
 
 
 def theo_fun(k):
-    """Returns Theodorsen function at a reduced frequency k"""
+    r"""Returns the value of Theodorsen's function at a reduced frequency :math:`k`.
+
+    .. math:: \mathcal{C}(jk) = \frac{H_1^{(2)}(k)}{H_1^{(2)}(k) + jH_0^{(2)}(k)}
+
+    where :math:`H_0^{(2)}(k)` and :math:`H_1^{(2)}(k)` are Hankel functions of the second kind.
+
+    Args:
+        k (np.array): Reduced frequency/frequencies at which to evaluate the function.
+
+    Returns:
+        np.array: Value of Theodorsen's function evaluated at the desired reduced frequencies.
+
+    """
 
     H1 = scsp.hankel2(1, k)
     H0 = scsp.hankel2(0, k)
@@ -376,16 +388,46 @@ def wagner_imp_start(aeff, Uinf, chord, tv):
 
 def flat_plate_analytical(kv, x_ea_perc, x_fh_perc, input_seq, output_seq,
                           output_scal=None, plunge_deriv=True):
-    """
+    r"""
     Computes the analytical frequency response of a plat plate for the input
-    output sequences in input_seq and output_seq over the frequency points kv,
+    output sequences in ``input_seq`` and ``output_seq`` over the frequency points ``kv``,
     if available.
 
-    The output complex values array ``Yan`` has shape ``(Nout,Nin,Nk)``; if an analytical
+    The output complex values array ``Yan`` has shape ``(Nout, Nin, Nk)``; if an analytical
     solution is not available, the response is assumed to be zero.
 
     If ``plunge_deriv`` is ``True``, the plunge response is expressed in terms of first
     derivative dh.
+
+    Args:
+        kv (np.array): Frequency range of length ``Nk``.
+        x_ea_perc (float): Elastic axis location along the chord as chord length percentage.
+        x_fh_perc (float): Flap hinge location along the chord as chord length percentage.
+        input_seq (list(str)): List of ``Nin`` number of inputs.
+            Supported inputs include:
+                * ``gust_sears``: Response to a continuous sinusoidal gust.
+                * ``pitch``: Response to an oscillatory pitching motion.
+                * ``plunge``: Response to an oscillatory plunging motion.
+        output_seq (list(str)): List of ``Nout`` number of outputs.
+            Supported outputs include:
+                * ``Fy``: Vertical force.
+                * ``Mz``: Pitching moment.
+        output_scal (np.array): Array of factors by which to divide the desired outputs. Dimensions of ``Nout``.
+        plunge_deriv (bool): If ``True`` expresses the plunge response in terms of the first derivative, i.e. the
+        rate of change of plunge :math:`d\dot{h}`.
+
+    Returns:
+        np.array: A ``(Nout, Nin, Nk)`` array containing the scaled frequency response for the inputs and outputs
+        specified.
+
+    See Also:
+        The lift coefficient due to pitch and plunging motions is calculated
+        using :func:`sharpy.utils.analytical.theo_CL_freq_resp`. In turn, the pitching moment is found using
+        :func:`sharpy.utils.analytical.theo_CM_freq_resp`.
+
+        The response to the continuous sinusoidal gust is calculated using
+        :func:`sharpy.utils.analytical.sears_CL_freq_resp`.
+
     """
 
     Nout = len(output_seq)
@@ -430,140 +472,140 @@ def flat_plate_analytical(kv, x_ea_perc, x_fh_perc, input_seq, output_seq,
     return Yfreq_an
 
 
-if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-
-    kv = np.linspace(0.001, 50, 1001)
-
-    ### test Sear's function
-    sv = sears_fun(kv)
-    plt.plot(kv, sv.real, '-')
-    plt.plot(kv, sv.imag, '--')
-    plt.show()
-
-    CL = theo_CL_freq_resp(kv, 0.25, 0.8)
-
-    kv = np.linspace(0.001, 2.0, 101)
-    # data for dimensional analysis
-    b = 1.3
-    U = 15.0
-    H = 0.3
-    A = 5.0 * np.pi / 180.
-    rho = 1.225
-    tref = b / U
-
-    ### plunge frequency response
-    Ltheo = -theo_lift(kv / tref, 0, H, 2. * b, rho, U, 0.0)[0]
-    Fref = b * rho * U ** 2
-    CLfreq = Ltheo / Fref / (H / b)
-
-    Yfreq = theo_CL_freq_resp(kv, x_ea_perc=1.0, x_fh_perc=0.9)
-    CLfreq02 = Yfreq[1]
-    Er = np.max(np.abs(CLfreq - CLfreq02))
-    print('Max error for CL plunge freq response: %.2e' % Er)
-
-    # moments
-    Yfreq = theo_CM_freq_resp(kv, x_ea_perc=1.0, x_fh_perc=0.9)
-    CMfreq = Yfreq[1]  # plunge motion
-    CMfreq_vel = 1.j / kv * CMfreq
-    CMmag_vel, CMph_vel = np.abs(CMfreq_vel), np.angle(CMfreq_vel, deg=True)
-
-    fig = plt.figure('Momentum coefficient frequency response')
-    ax = fig.add_subplot(121)
-    ax.plot(kv, CMmag_vel, 'k', label='magnitude')
-    ax.legend()
-    ax = fig.add_subplot(122)
-    ax.plot(kv, CMph_vel, 'r', label='phase')
-    ax.legend()
-    plt.show()
-
-    ### pitching frequency response
-    Yfreq = theo_CL_freq_resp(kv, x_ea_perc=.5, x_fh_perc=0.9)
-    CLfreq02 = Yfreq[0]
-
-    ### geometry
-    c = 3.  # m
-    b = 0.5 * c
-
-    ### motion
-    ktarget = 1.
-    H = 0.02 * b  # m Ref.[1]
-    A = 1. * np.pi / 180.  # rad - Ref.[1]
-    x12 = -0.5 * c
-    f0 = 5.  # Hz
-    w0 = 2. * np.pi * f0  # rad/s
-
-    uinf = b * w0 / ktarget
-    rhoinf = 1.225  # kg/m3
-    qinf = 0.5 * c * rhoinf * uinf ** 2
-    # C=theo_fun(k=ktarget)
-    # L=theo_lift(w0,A,H,c,rhoinf,uinf,x12)
-
-    ##### Plunge Induced drag
-    Ncicles = 5
-    tv = np.linspace(0., 2. * np.pi * Ncicles / w0, 200 * Ncicles + 1)
-    Cdv = garrick_drag_plunge(w0, H, c, rhoinf, uinf, tv)
-    hv = -H * np.cos(w0 * tv)
-    dhv = w0 * H * np.sin(w0 * tv)
-    aeffv = np.arctan(-dhv / uinf)
-    # fig = plt.figure('Induced drag - plunge motion',(10,6))
-    # ax=fig.add_subplot(111)
-    # ax.plot(tv,hv/c,'r',label=r'h/c')
-    # ax.plot(tv,Cdv,'k',label=r'Induced Drag')
-    # ax.legend()
-    # plt.show()
-    fig = plt.figure('Plunge motion - Phase vs kinematics', (10, 6))
-    ax = fig.add_subplot(111)
-    # ax.plot(aeffv,hv/c,'r',label=r'h/c')
-    ax.plot(180. / np.pi * aeffv, Cdv, 'k', label=r'Induced Drag')
-    ax.set_xlabel('deg')
-    ax.legend()
-    plt.close()
-
-    ##### Pitching Induced drag
-    Ncicles = 5
-    tv = np.linspace(0., 2. * np.pi * Ncicles / w0, 200 * Ncicles + 1)
-    Cdv = garrick_drag_pitch(w0, A, c, rhoinf, uinf, x12, tv)
-    aeffv = A * np.sin(w0 * tv)
-    fig = plt.figure('Pitch motion - Phase vs kinematics', (10, 6))
-    ax = fig.add_subplot(111)
-    # ax.plot(aeffv,hv/c,'r',label=r'h/c')
-    ax.plot(180. / np.pi * aeffv, Cdv, 'k', label=r'Induced Drag')
-    ax.set_xlabel('deg')
-    ax.legend()
-
-    ##### Sear's solution test
-    L = .5 * c
-    w0 = 0.3
-    uinf = 6.0
-
-    # gust profile at LE
-    tv = np.linspace(0., 2., 300)
-    C = 2. * np.pi / L
-    wgustLE = w0 * np.sin(C * uinf * tv)
-    CLv = sears_lift_sin_gust(w0, L, uinf, c, tv)
-
-    fig = plt.figure('Gust response', (10, 6))
-    ax = fig.add_subplot(111)
-    ax.plot(tv, wgustLE, 'k', label=r'vertical gust velocity at LE [m/s]')
-    ax.plot(tv, CLv, 'r', label=r'CL')
-    ax.set_xlabel('time')
-    ax.legend()
-    # plt.show()
-    plt.close('all')
-
-    ##### Wagner impulsive start
-    uinf = 20.0
-    chord = 3.0
-    aeff = 2.0 * np.pi / 180.
-    tv = np.linspace(0., 10., 300)
-
-    CLv = wagner_imp_start(aeff, uinf, chord, tv)
-    CLv_inf = wagner_imp_start(aeff, uinf, chord, 1e3 * tv[-1])
-
-    fig = plt.figure('Impulsive start', (10, 6))
-    ax = fig.add_subplot(111)
-    ax.plot(tv, CLv / CLv_inf, 'r', label=r'CL')
-    ax.set_xlabel('time')
-    ax.legend()
-    plt.show()
+# if __name__ == '__main__':
+#     import matplotlib.pyplot as plt
+#
+#     kv = np.linspace(0.001, 50, 1001)
+#
+#     ### test Sear's function
+#     sv = sears_fun(kv)
+#     plt.plot(kv, sv.real, '-')
+#     plt.plot(kv, sv.imag, '--')
+#     plt.show()
+#
+#     CL = theo_CL_freq_resp(kv, 0.25, 0.8)
+#
+#     kv = np.linspace(0.001, 2.0, 101)
+#     # data for dimensional analysis
+#     b = 1.3
+#     U = 15.0
+#     H = 0.3
+#     A = 5.0 * np.pi / 180.
+#     rho = 1.225
+#     tref = b / U
+#
+#     ### plunge frequency response
+#     Ltheo = -theo_lift(kv / tref, 0, H, 2. * b, rho, U, 0.0)[0]
+#     Fref = b * rho * U ** 2
+#     CLfreq = Ltheo / Fref / (H / b)
+#
+#     Yfreq = theo_CL_freq_resp(kv, x_ea_perc=1.0, x_fh_perc=0.9)
+#     CLfreq02 = Yfreq[1]
+#     Er = np.max(np.abs(CLfreq - CLfreq02))
+#     print('Max error for CL plunge freq response: %.2e' % Er)
+#
+#     # moments
+#     Yfreq = theo_CM_freq_resp(kv, x_ea_perc=1.0, x_fh_perc=0.9)
+#     CMfreq = Yfreq[1]  # plunge motion
+#     CMfreq_vel = 1.j / kv * CMfreq
+#     CMmag_vel, CMph_vel = np.abs(CMfreq_vel), np.angle(CMfreq_vel, deg=True)
+#
+#     fig = plt.figure('Momentum coefficient frequency response')
+#     ax = fig.add_subplot(121)
+#     ax.plot(kv, CMmag_vel, 'k', label='magnitude')
+#     ax.legend()
+#     ax = fig.add_subplot(122)
+#     ax.plot(kv, CMph_vel, 'r', label='phase')
+#     ax.legend()
+#     plt.show()
+#
+#     ### pitching frequency response
+#     Yfreq = theo_CL_freq_resp(kv, x_ea_perc=.5, x_fh_perc=0.9)
+#     CLfreq02 = Yfreq[0]
+#
+#     ### geometry
+#     c = 3.  # m
+#     b = 0.5 * c
+#
+#     ### motion
+#     ktarget = 1.
+#     H = 0.02 * b  # m Ref.[1]
+#     A = 1. * np.pi / 180.  # rad - Ref.[1]
+#     x12 = -0.5 * c
+#     f0 = 5.  # Hz
+#     w0 = 2. * np.pi * f0  # rad/s
+#
+#     uinf = b * w0 / ktarget
+#     rhoinf = 1.225  # kg/m3
+#     qinf = 0.5 * c * rhoinf * uinf ** 2
+#     # C=theo_fun(k=ktarget)
+#     # L=theo_lift(w0,A,H,c,rhoinf,uinf,x12)
+#
+#     ##### Plunge Induced drag
+#     Ncicles = 5
+#     tv = np.linspace(0., 2. * np.pi * Ncicles / w0, 200 * Ncicles + 1)
+#     Cdv = garrick_drag_plunge(w0, H, c, rhoinf, uinf, tv)
+#     hv = -H * np.cos(w0 * tv)
+#     dhv = w0 * H * np.sin(w0 * tv)
+#     aeffv = np.arctan(-dhv / uinf)
+#     # fig = plt.figure('Induced drag - plunge motion',(10,6))
+#     # ax=fig.add_subplot(111)
+#     # ax.plot(tv,hv/c,'r',label=r'h/c')
+#     # ax.plot(tv,Cdv,'k',label=r'Induced Drag')
+#     # ax.legend()
+#     # plt.show()
+#     fig = plt.figure('Plunge motion - Phase vs kinematics', (10, 6))
+#     ax = fig.add_subplot(111)
+#     # ax.plot(aeffv,hv/c,'r',label=r'h/c')
+#     ax.plot(180. / np.pi * aeffv, Cdv, 'k', label=r'Induced Drag')
+#     ax.set_xlabel('deg')
+#     ax.legend()
+#     plt.close()
+#
+#     ##### Pitching Induced drag
+#     Ncicles = 5
+#     tv = np.linspace(0., 2. * np.pi * Ncicles / w0, 200 * Ncicles + 1)
+#     Cdv = garrick_drag_pitch(w0, A, c, rhoinf, uinf, x12, tv)
+#     aeffv = A * np.sin(w0 * tv)
+#     fig = plt.figure('Pitch motion - Phase vs kinematics', (10, 6))
+#     ax = fig.add_subplot(111)
+#     # ax.plot(aeffv,hv/c,'r',label=r'h/c')
+#     ax.plot(180. / np.pi * aeffv, Cdv, 'k', label=r'Induced Drag')
+#     ax.set_xlabel('deg')
+#     ax.legend()
+#
+#     ##### Sear's solution test
+#     L = .5 * c
+#     w0 = 0.3
+#     uinf = 6.0
+#
+#     # gust profile at LE
+#     tv = np.linspace(0., 2., 300)
+#     C = 2. * np.pi / L
+#     wgustLE = w0 * np.sin(C * uinf * tv)
+#     CLv = sears_lift_sin_gust(w0, L, uinf, c, tv)
+#
+#     fig = plt.figure('Gust response', (10, 6))
+#     ax = fig.add_subplot(111)
+#     ax.plot(tv, wgustLE, 'k', label=r'vertical gust velocity at LE [m/s]')
+#     ax.plot(tv, CLv, 'r', label=r'CL')
+#     ax.set_xlabel('time')
+#     ax.legend()
+#     # plt.show()
+#     plt.close('all')
+#
+#     ##### Wagner impulsive start
+#     uinf = 20.0
+#     chord = 3.0
+#     aeff = 2.0 * np.pi / 180.
+#     tv = np.linspace(0., 10., 300)
+#
+#     CLv = wagner_imp_start(aeff, uinf, chord, tv)
+#     CLv_inf = wagner_imp_start(aeff, uinf, chord, 1e3 * tv[-1])
+#
+#     fig = plt.figure('Impulsive start', (10, 6))
+#     ax = fig.add_subplot(111)
+#     ax.plot(tv, CLv / CLv_inf, 'r', label=r'CL')
+#     ax.set_xlabel('time')
+#     ax.legend()
+#     plt.show()

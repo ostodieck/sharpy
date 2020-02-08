@@ -51,7 +51,7 @@ class FlyingWing():
         RollNodes=False : If true, the wing nodes are rolled insted of the FoR A
 
     Usage: 
-        ws=flying_wings.FltingWing(*args)
+        ws=flying_wings.FlyingWing(*args)
         ws.clean_test_files()
         ws.update_derived_params()
         ws.generate_fem_file()
@@ -136,7 +136,7 @@ class FlyingWing():
         self.relaxation_factor = 0.2
         self.gust_intensity = 0.01
         self.gust_length = 5
-        self.tolerance = 1e-12
+        self.tolerance = 1e-6
 
         n_lumped_mass = 1
         self.lumped_mass = np.zeros((n_lumped_mass))
@@ -377,7 +377,7 @@ class FlyingWing():
         str_u_inf_direction = [str(self.u_inf_direction[cc]) for cc in range(3)]
 
         config = configobj.ConfigObj()
-        config.filename = self.route + '/' + self.case_name + '.solver.txt'
+        config.filename = self.route + '/' + self.case_name + '.sharpy'
         settings = dict()
 
         config['SHARPy'] = {
@@ -402,7 +402,7 @@ class FlyingWing():
         }
         config['NonLinearStatic'] = {'print_info': 'off',
                                      'max_iterations': 150,
-                                     'num_load_steps': 4,
+                                     'num_load_steps': 0,
                                      'delta_curved': 1e-5,
                                      'min_delta': 1e-5,
                                      'gravity_on': self.gravity_on,
@@ -446,11 +446,11 @@ class FlyingWing():
             'structural_solver': 'NonLinearStatic',
             'structural_solver_settings': {'print_info': 'off',
                                            'max_iterations': 150,
-                                           'num_load_steps': 4,
+                                           'num_load_steps': 0,
                                            'delta_curved': 1e-1,
                                            'min_delta': 1e-10,
                                            'gravity_on': self.gravity_on,
-                                           'gravity': 9.754}}
+                                           'gravity': 9.81}}
 
         config['LinearUvlm'] = {'dt': self.dt,
                                 'integr_order': 2,
@@ -470,7 +470,7 @@ class FlyingWing():
 
         settings['NonLinearDynamicPrescribedStep'] = {'print_info': 'off',
                                                       'max_iterations': 950,
-                                                      'delta_curved': 1e-6,
+                                                      'delta_curved': 1e-1,
                                                       'min_delta': self.tolerance*1e3,
                                                       'newmark_damp': 5e-3,
                                                       'gravity_on': self.gravity_on,
@@ -578,7 +578,7 @@ class FlyingWing():
                                    'output_psi': 'on',
                                    'screen_output': 'on'}
 
-        config['SaveData'] = {'folder': self.route + '/output/' + self.case_name + '/'}
+        config['SaveData'] = {'folder': './output/' + self.case_name + '/'}
 
         config['Modal'] = {'folder': './output/',
                            'NumLambda': 20,
@@ -647,7 +647,7 @@ class FlyingWing():
         # print('config dictionary set-up with flow:')
         # print(config['SHARPy']['flow'])
 
-    def generate_aero_file(self):
+    def generate_aero_file(self, airfoil_efficiency=None):
 
         with h5.File(self.route + '/' + self.case_name + '.aero.h5', 'a') as h5file:
             airfoils_group = h5file.create_group('airfoils')
@@ -682,6 +682,9 @@ class FlyingWing():
                 'control_surface_deflection', data=self.control_surface_deflection)
             control_surface_chord_input = h5file.create_dataset(
                 'control_surface_chord', data=self.control_surface_chord)
+            if airfoil_efficiency is not None:
+                a_eff_handle = h5file.create_dataset(
+                    'airfoil_efficiency', data=airfoil_efficiency)
 
     def generate_fem_file(self):
 
@@ -746,7 +749,7 @@ class FlyingWing():
         if os.path.isfile(aero_file_name):
             os.remove(aero_file_name)
 
-        solver_file_name = self.route + '/' + self.case_name + '.solver.txt'
+        solver_file_name = self.route + '/' + self.case_name + '.sharpy'
         if os.path.isfile(solver_file_name):
             os.remove(solver_file_name)
 
@@ -919,6 +922,7 @@ class GolandControlSurface(Goland):
                  rho=1.02,
                  b_ref=2. * 6.096,  # geometry
                  main_chord=1.8288,
+                 pct_flap=0.2,
                  aspect_ratio=(2. * 6.096) / 1.8288,
                  roll=0.,
                  yaw=0.,
@@ -961,6 +965,7 @@ class GolandControlSurface(Goland):
         self.control_surface_type = np.zeros(self.n_control_surfaces, dtype=int)
         # other
         self.c_ref = 1.8288
+        self.pct_flap = pct_flap
 
     def update_aero_prop(self):
         assert hasattr(self, 'conn_glob'), \
@@ -971,6 +976,7 @@ class GolandControlSurface(Goland):
         num_node_tot = self.num_node_tot
         num_elem_surf = self.num_elem_surf
         num_elem_tot = self.num_elem_tot
+        pct_flap = self.pct_flap
 
         control_surface = self.control_surface
 
@@ -991,11 +997,11 @@ class GolandControlSurface(Goland):
                 print('Surface' + str(i_surf))
                 for i_elem in range(num_elem_surf):
                     for i_local_node in range(self.num_node_elem):
-                        if i_elem >= num_elem_surf // 2:
+                        if i_elem >= int(num_elem_surf *(1- pct_flap)):
                             if i_surf == 0:
                                 control_surface[ws_elem + i_elem, i_local_node] = 0  # Right flap
                             else:
-                                control_surface[ws_elem + i_elem, i_local_node] = 1  # Left flap
+                                control_surface[ws_elem + i_elem, i_local_node] = 0  # Left flap
                 ws_elem += num_elem_surf
                         # control_surface[i_elem, i_local_node] = 0
 
